@@ -1,24 +1,27 @@
-# backend/app/models/ai_insights_cache.py
+# backend/app/models/notifications.py
 import uuid
 from sqlalchemy import Column, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy import TIMESTAMP
 from sqlalchemy.orm import relationship
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Enum as SAEnum
 
 from app.db.base import Base
 
+notification_status = SAEnum('unread','read','dismissed', name="notification_status")
 
-class AIInsightsCache(Base):
-    __tablename__ = "ai_insights_cache"
+
+class Notification(Base):
+    __tablename__ = "notifications"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
     shop_id = Column(UUID(as_uuid=True), ForeignKey("shops.id"), nullable=False)
-    insight_key = Column(Text, nullable=False)
+    type = Column(Text, nullable=False)
+    target_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     payload = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
-    model_version = Column(Text, nullable=True)
+    status = Column(notification_status, nullable=False, server_default="'unread'::notification_status")
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
-    expires_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
-    shop = relationship("Shop", back_populates="ai_insights")
+    shop = relationship("Shop", back_populates="notifications")
+    target_user = relationship("User", back_populates="notifications_target")

@@ -1,4 +1,4 @@
-# backend/app/models/ai_insights_cache.py
+# backend/app/models/audit_logs.py
 import uuid
 from sqlalchemy import Column, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -10,15 +10,17 @@ from sqlalchemy import ForeignKey
 from app.db.base import Base
 
 
-class AIInsightsCache(Base):
-    __tablename__ = "ai_insights_cache"
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
-    shop_id = Column(UUID(as_uuid=True), ForeignKey("shops.id"), nullable=False)
-    insight_key = Column(Text, nullable=False)
+    shop_id = Column(UUID(as_uuid=True), ForeignKey("shops.id"), nullable=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    action = Column(Text, nullable=False)
+    object_type = Column(Text, nullable=True)
+    object_id = Column(UUID(as_uuid=True), nullable=True)
     payload = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
-    model_version = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
-    expires_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
-    shop = relationship("Shop", back_populates="ai_insights")
+    shop = relationship("Shop", back_populates="audit_logs")
+    user = relationship("User", back_populates="audit_logs")
