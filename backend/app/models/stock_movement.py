@@ -1,6 +1,6 @@
-# backend/app/models/stock_movements.py
+# backend/app/models/stock_movement.py
 import uuid
-from sqlalchemy import Column, Integer, Text
+from sqlalchemy import Column, Integer, Text, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy import TIMESTAMP
@@ -25,7 +25,7 @@ class StockMovement(Base):
     reference_id = Column(UUID(as_uuid=True), nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
-    metadata = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    meta_data = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))  # Renamed from 'metadata' (SQLAlchemy reserved)
 
     # relationships
     product = relationship("Product", back_populates="stock_movements")

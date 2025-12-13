@@ -1,6 +1,6 @@
 # backend/app/models/sales.py
 import uuid
-from sqlalchemy import Column, Numeric, Text
+from sqlalchemy import Column, Numeric, Text, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy import TIMESTAMP

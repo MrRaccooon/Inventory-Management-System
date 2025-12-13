@@ -1,6 +1,6 @@
-# backend/app/models/users.py
+# backend/app/models/user.py
 import uuid
-from sqlalchemy import Column, Text, Boolean
+from sqlalchemy import Column, Text, Boolean, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy import TIMESTAMP

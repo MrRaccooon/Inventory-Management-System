@@ -1,6 +1,6 @@
-# backend/app/models/sale_items.py
+# backend/app/models/sale_item.py
 import uuid
-from sqlalchemy import Column, Integer, Numeric, CheckConstraint, Text
+from sqlalchemy import Column, Integer, Numeric, CheckConstraint, Text, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy import ForeignKey

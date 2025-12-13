@@ -1,9 +1,9 @@
-# backend/app/models/shops.py
+# backend/app/models/shop.py
 import uuid
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-from sqlalchemy import TIMESTAMP, text
+from sqlalchemy import TIMESTAMP
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base

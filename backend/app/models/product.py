@@ -1,6 +1,6 @@
-# backend/app/models/products.py
+# backend/app/models/product.py
 import uuid
-from sqlalchemy import Column, Text, Integer, Numeric, Boolean
+from sqlalchemy import Column, Text, Integer, Numeric, Boolean, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy import TIMESTAMP

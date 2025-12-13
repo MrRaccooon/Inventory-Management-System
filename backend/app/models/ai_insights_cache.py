@@ -1,6 +1,6 @@
 # backend/app/models/ai_insights_cache.py
 import uuid
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, Text, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy import TIMESTAMP

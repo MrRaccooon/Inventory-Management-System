@@ -1,11 +1,11 @@
-# backend/app/models/forecasts.py
+# backend/app/models/forecast.py
 import uuid
-from sqlalchemy import Column, Date, Numeric
+from sqlalchemy import Column, Date, Numeric, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy import TIMESTAMP
 from sqlalchemy.orm import relationship
-from sqlalchemy import ForeignKey, Text
+from sqlalchemy import ForeignKey
 
 from app.db.base import Base
 

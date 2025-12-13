@@ -1,6 +1,6 @@
 # backend/app/models/invoices.py
 import uuid
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy import TIMESTAMP
@@ -22,5 +22,3 @@ class Invoice(Base):
 
     sale = relationship("Sale", back_populates="invoices")
     issued_by_user = relationship("User", back_populates="invoices_issued")
-    # optionally link shop via sale.shop
-    shop = relationship("Shop", viewonly=True, secondary="sales", primaryjoin="Invoice.sale_id==Sale.id", secondaryjoin="Sale.shop_id==Shop.id")
