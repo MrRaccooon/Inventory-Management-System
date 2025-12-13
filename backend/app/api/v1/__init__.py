@@ -12,7 +12,10 @@ from . import (
     invoices,
     shops,
     categories,
-    notifications
+    notifications,
+    customers,
+    suppliers,
+    search
 )
 
 __all__ = [
@@ -28,5 +31,8 @@ __all__ = [
     "invoices",
     "shops",
     "categories",
-    "notifications"
+    "notifications",
+    "customers",
+    "suppliers",
+    "search"
 ]

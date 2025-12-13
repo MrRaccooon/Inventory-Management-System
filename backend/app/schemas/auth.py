@@ -8,6 +8,13 @@ class Token(BaseModel):
     """JWT token response schema."""
     access_token: str
     token_type: str = "bearer"
+    refresh_token: str | None = None
+    expires_in: int | None = None
+
+
+class RefreshTokenRequest(BaseModel):
+    """Refresh token request schema."""
+    refresh_token: str
 
 
 class TokenData(BaseModel):
@@ -64,6 +71,23 @@ class VerifyEmailRequest(BaseModel):
 class ResendVerificationRequest(BaseModel):
     """Resend verification email request schema."""
     email: EmailStr
+
+
+class TwoFactorSetupRequest(BaseModel):
+    """2FA setup request schema."""
+    password: str  # Confirm identity
+
+
+class TwoFactorVerifyRequest(BaseModel):
+    """2FA verification request schema."""
+    code: str  # 6-digit OTP
+
+
+class TwoFactorLoginRequest(BaseModel):
+    """2FA login verification schema."""
+    email: EmailStr
+    password: str
+    code: str  # 6-digit OTP
 
 
 class UserResponse(BaseModel):

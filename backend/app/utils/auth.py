@@ -9,6 +9,8 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+import secrets
+import uuid
 
 from app.config import settings
 from app.db.session import get_db
@@ -46,6 +48,110 @@ def get_password_hash(password: str) -> str:
         Hashed password string
     """
     return pwd_context.hash(password)
+
+
+def create_refresh_token(user_id: str, device_info: str = None, ip_address: str = None) -> dict:
+    """
+    Create a refresh token for a user.
+    
+    Args:
+        user_id: User UUID
+        device_info: Device/user agent information
+        ip_address: Client IP address
+        
+    Returns:
+        Dictionary with token and expiry info
+    """
+    from app.models.refresh_token import RefreshToken
+    from app.db.session import SessionLocal
+    
+    # Generate secure random token
+    token = secrets.token_urlsafe(64)
+    expires_at = datetime.utcnow() + timedelta(days=30)  # 30 days
+    
+    # Store in database
+    db = SessionLocal()
+    try:
+        refresh_token = RefreshToken(
+            id=uuid.uuid4(),
+            user_id=uuid.UUID(user_id),
+            token=token,
+            expires_at=expires_at,
+            device_info=device_info,
+            ip_address=ip_address
+        )
+        db.add(refresh_token)
+        db.commit()
+        db.refresh(refresh_token)
+        
+        return {
+            "refresh_token": token,
+            "expires_at": expires_at.isoformat(),
+            "token_id": str(refresh_token.id)
+        }
+    finally:
+        db.close()
+
+
+def verify_refresh_token(token: str) -> dict | None:
+    """
+    Verify a refresh token and return user info if valid.
+    
+    Args:
+        token: Refresh token string
+        
+    Returns:
+        User info dict or None if invalid
+    """
+    from app.models.refresh_token import RefreshToken
+    from app.db.session import SessionLocal
+    
+    db = SessionLocal()
+    try:
+        refresh_token = db.query(RefreshToken).filter(
+            RefreshToken.token == token,
+            RefreshToken.is_revoked == False,
+            RefreshToken.expires_at > datetime.utcnow()
+        ).first()
+        
+        if not refresh_token:
+            return None
+        
+        return {
+            "user_id": str(refresh_token.user_id),
+            "token_id": str(refresh_token.id)
+        }
+    finally:
+        db.close()
+
+
+def revoke_refresh_token(token: str) -> bool:
+    """
+    Revoke a refresh token.
+    
+    Args:
+        token: Refresh token to revoke
+        
+    Returns:
+        True if revoked, False if not found
+    """
+    from app.models.refresh_token import RefreshToken
+    from app.db.session import SessionLocal
+    
+    db = SessionLocal()
+    try:
+        refresh_token = db.query(RefreshToken).filter(
+            RefreshToken.token == token
+        ).first()
+        
+        if not refresh_token:
+            return False
+        
+        refresh_token.is_revoked = True
+        db.commit()
+        return True
+    finally:
+        db.close()
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

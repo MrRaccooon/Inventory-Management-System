@@ -13,22 +13,34 @@ from app.utils.auth import (
     verify_password,
     create_access_token,
     get_current_active_user,
-    get_password_hash
+    get_password_hash,
+    create_refresh_token,
+    verify_refresh_token,
+    revoke_refresh_token,
+    require_role
 )
 from app.schemas.auth import (
     Token, UserResponse, LoginRequest, RegisterRequest,
     ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest,
-    UpdateProfileRequest, VerifyEmailRequest, ResendVerificationRequest
+    UpdateProfileRequest, VerifyEmailRequest, ResendVerificationRequest,
+    RefreshTokenRequest, TwoFactorSetupRequest, TwoFactorVerifyRequest,
+    TwoFactorLoginRequest
 )
 from app.config import settings
 from app.models.shop import Shop
 import uuid
+from uuid import UUID
 import secrets
 from datetime import datetime, timedelta
+import pyotp
+import qrcode
+import io
+import base64
 
 # In-memory storage for tokens (in production, use Redis or database)
 password_reset_tokens = {}
 email_verification_tokens = {}
+two_factor_pending = {}  # Temporary storage for 2FA pending logins
 
 router = APIRouter()
 
@@ -238,6 +250,52 @@ async def register(
     return new_user
 
 
+@router.post("/refresh", response_model=Token)
+async def refresh_token_endpoint(
+    request_data: RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Refresh access token using refresh token.
+    
+    Args:
+        request_data: Refresh token request
+        db: Database session
+        
+    Returns:
+        New access token
+    """
+    # Verify refresh token
+    token_info = verify_refresh_token(request_data.refresh_token)
+    
+    if not token_info:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
+        )
+    
+    # Get user
+    user = db.query(User).filter(User.id == token_info["user_id"]).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive"
+        )
+    
+    # Create new access token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user.id), "email": user.email},
+        expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    }
+
+
 @router.post("/logout")
 async def logout(
     current_user: User = Depends(get_current_active_user),
@@ -263,6 +321,84 @@ async def logout(
     return {
         "message": "Successfully logged out",
         "detail": "Please delete the authentication token from your client"
+    }
+
+
+@router.post("/deactivate-account")
+async def deactivate_account(
+    password_data: ChangePasswordRequest,  # Reuse to get current password
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Deactivate user account (soft delete).
+    Requires password confirmation.
+    
+    Args:
+        password_data: Current password for confirmation
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Success message
+    """
+    # Verify password
+    if not verify_password(password_data.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password"
+        )
+    
+    # Deactivate account
+    current_user.is_active = False
+    db.commit()
+    
+    return {
+        "message": "Account deactivated successfully",
+        "detail": "Your account has been deactivated. Contact admin to reactivate."
+    }
+
+
+@router.post("/reactivate-account/{user_id}")
+async def reactivate_account(
+    user_id: UUID,
+    current_user: User = Depends(require_role(["owner", "admin"])),
+    db: Session = Depends(get_db)
+):
+    """
+    Reactivate a deactivated user account.
+    Only owners and admins can reactivate accounts.
+    
+    Args:
+        user_id: User ID to reactivate
+        current_user: Current authenticated user (must be owner/admin)
+        db: Database session
+        
+    Returns:
+        Success message
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # If owner, can only reactivate users in their shop
+    if current_user.role == 'owner' and user.shop_id != current_user.shop_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot reactivate users from other shops"
+        )
+    
+    user.is_active = True
+    db.commit()
+    
+    return {
+        "message": "Account reactivated successfully",
+        "user_id": str(user.id),
+        "email": user.email
     }
 
 

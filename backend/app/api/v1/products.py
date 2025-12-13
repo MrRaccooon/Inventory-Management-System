@@ -3,9 +3,10 @@ Product/Inventory API endpoints.
 Handles product CRUD operations and inventory management.
 """
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 from uuid import UUID
+from datetime import datetime
 
 from app.db.session import get_db
 from app.models.user import User
@@ -19,6 +20,10 @@ from app.services.inventory_service import (
     get_inventory_summary
 )
 from app.services.notification_service import check_and_alert_low_stock
+from fastapi.responses import StreamingResponse
+import io
+import pandas as pd
+import csv
 from app.schemas.product import (
     ProductCreate,
     ProductUpdate,
@@ -27,6 +32,112 @@ from app.schemas.product import (
 )
 
 router = APIRouter()
+
+
+@router.get("/barcode/{barcode}")
+async def get_product_by_barcode(
+    barcode: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get product by barcode/SKU.
+    Used for barcode scanning functionality.
+    
+    Args:
+        barcode: Product barcode or SKU
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Product details
+    """
+    from app.models.product import Product
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="User is not associated with a shop")
+    
+    # Search by SKU (which can be used as barcode)
+    product = db.query(Product).filter(
+        Product.shop_id == current_user.shop_id,
+        Product.sku == barcode
+    ).first()
+    
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with barcode '{barcode}' not found"
+        )
+    
+    return {
+        "id": str(product.id),
+        "name": product.name,
+        "sku": product.sku,
+        "current_stock": product.current_stock,
+        "unit_price": float(product.unit_price),
+        "unit_cost": float(product.unit_cost),
+        "category_id": str(product.category_id) if product.category_id else None,
+        "reorder_point": product.reorder_point,
+        "is_active": product.is_active
+    }
+
+
+@router.post("/scan-barcode")
+async def scan_multiple_barcodes(
+    barcodes: list[str],
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Scan multiple barcodes at once.
+    Returns product details for all valid barcodes.
+    
+    Args:
+        barcodes: List of barcodes/SKUs to scan
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        List of products with their details and scan status
+    """
+    from app.models.product import Product
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="User is not associated with a shop")
+    
+    results = []
+    for barcode in barcodes:
+        product = db.query(Product).filter(
+            Product.shop_id == current_user.shop_id,
+            Product.sku == barcode
+        ).first()
+        
+        if product:
+            results.append({
+                "barcode": barcode,
+                "found": True,
+                "product": {
+                    "id": str(product.id),
+                    "name": product.name,
+                    "sku": product.sku,
+                    "current_stock": product.current_stock,
+                    "unit_price": float(product.unit_price),
+                    "unit_cost": float(product.unit_cost)
+                }
+            })
+        else:
+            results.append({
+                "barcode": barcode,
+                "found": False,
+                "error": "Product not found"
+            })
+    
+    return {
+        "scanned": len(barcodes),
+        "found": sum(1 for r in results if r["found"]),
+        "not_found": sum(1 for r in results if not r["found"]),
+        "results": results
+    }
 
 
 @router.get("/low-stock")
