@@ -22,10 +22,83 @@ from app.schemas.sales import (
     SaleCreate,
     SaleUpdate,
     SaleResponse,
-    SaleListResponse
+    SaleListResponse,
+    RefundRequest
 )
 
 router = APIRouter()
+
+
+@router.get("/payment-methods")
+async def get_payment_methods():
+    """
+    Get list of available payment methods.
+    
+    Returns:
+        List of payment methods with their codes
+    """
+    return {
+        "payment_methods": [
+            {"code": "cash", "name": "Cash", "description": "Cash payment"},
+            {"code": "card", "name": "Card", "description": "Debit/Credit card"},
+            {"code": "upi", "name": "UPI", "description": "UPI payment (Google Pay, PhonePe, etc.)"},
+            {"code": "credit", "name": "Credit", "description": "Credit/Account payment"},
+            {"code": "other", "name": "Other", "description": "Other payment methods"}
+        ]
+    }
+
+
+@router.get("/payment-stats")
+async def get_payment_stats(
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get payment method statistics.
+    
+    Args:
+        start_date: Start date for stats
+        end_date: End date for stats
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Payment method breakdown
+    """
+    from app.models.sales import Sale
+    from sqlalchemy import func
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="User is not associated with a shop")
+    
+    query = db.query(
+        Sale.payment_type,
+        func.count(Sale.id).label('count'),
+        func.sum(Sale.total_amount).label('total_amount')
+    ).filter(
+        Sale.shop_id == current_user.shop_id,
+        Sale.status.in_(['paid', 'pending'])
+    )
+    
+    if start_date:
+        query = query.filter(Sale.created_at >= start_date)
+    if end_date:
+        query = query.filter(Sale.created_at <= end_date)
+    
+    results = query.group_by(Sale.payment_type).all()
+    
+    payment_stats = [
+        {
+            "payment_type": row.payment_type,
+            "count": row.count,
+            "total_amount": float(row.total_amount or 0)
+        }
+        for row in results
+    ]
+    
+    return {"payment_stats": payment_stats}
 
 
 @router.post("", response_model=SaleResponse, status_code=201)
@@ -205,6 +278,96 @@ async def void_sale_endpoint(
     
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
+    
+    return sale
+
+
+@router.post("/{sale_id}/refund", response_model=SaleResponse)
+async def refund_sale(
+    sale_id: UUID,
+    refund_data: RefundRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Process a full or partial refund for a sale.
+    Restores stock for refunded items.
+    
+    Args:
+        sale_id: Sale UUID
+        refund_data: Refund details (reason, amount, items)
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Refunded sale
+    """
+    from app.models.sales import Sale
+    from app.models.sale_item import SaleItem
+    from app.utils.ledger import record_stock_movement
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="User is not associated with a shop")
+    
+    # Get the sale
+    sale = db.query(Sale).filter(
+        Sale.id == sale_id,
+        Sale.shop_id == current_user.shop_id
+    ).first()
+    
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    if sale.status == 'refunded':
+        raise HTTPException(status_code=400, detail="Sale is already refunded")
+    
+    if sale.status == 'void':
+        raise HTTPException(status_code=400, detail="Cannot refund a voided sale")
+    
+    # Process full or partial refund
+    if refund_data.items:
+        # Partial refund - specific items
+        for item_id in refund_data.items:
+            item = db.query(SaleItem).filter(
+                SaleItem.id == item_id,
+                SaleItem.sale_id == sale_id
+            ).first()
+            
+            if item:
+                # Restore stock for this item
+                record_stock_movement(
+                    db=db,
+                    shop_id=current_user.shop_id,
+                    product_id=item.product_id,
+                    change_qty=item.quantity,  # Positive to restore
+                    reason="return",
+                    reference_type="sale",
+                    reference_id=sale_id,
+                    created_by=current_user.id,
+                    metadata={"refund_reason": refund_data.reason, "item_id": str(item_id)}
+                )
+    else:
+        # Full refund - all items
+        for item in sale.items:
+            record_stock_movement(
+                db=db,
+                shop_id=current_user.shop_id,
+                product_id=item.product_id,
+                change_qty=item.quantity,  # Positive to restore
+                reason="return",
+                reference_type="sale",
+                reference_id=sale_id,
+                created_by=current_user.id,
+                metadata={"refund_reason": refund_data.reason}
+            )
+    
+    # Update sale status
+    sale.status = 'refunded'
+    sale.notes = f"{sale.notes or ''}\nRefund: {refund_data.reason}".strip()
+    sale.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(sale)
     
     return sale
 

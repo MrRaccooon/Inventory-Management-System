@@ -7,10 +7,13 @@ Enterprise-capable Inventory & Sales CRM backend built with FastAPI, PostgreSQL,
 - **ACID-safe inventory ledger** - No double-selling, transactional stock updates
 - **Sales & billing with GST support** - India-specific GST calculations
 - **AI Analytics & Forecasting** - ML-powered demand forecasting and insights
-- **Comprehensive Reports** - Sales, inventory, profitability, and employee performance
+- **Comprehensive Reports** - Sales, inventory, profitability, and employee performance with Excel/CSV export
 - **Role-based Access Control** - Owner, manager, staff, auditor roles
 - **Employee Management** - Attendance tracking and performance metrics
-- **RESTful API** - Well-documented API with OpenAPI/Swagger docs
+- **Returns & Refunds** - Full or partial refund support with automatic stock restoration
+- **Notifications System** - Low stock alerts and custom notifications
+- **Complete Authentication** - Login, register, logout, password reset, email verification
+- **RESTful API** - Well-documented API with OpenAPI/Swagger docs (~75+ endpoints)
 
 ## Tech Stack
 
@@ -160,9 +163,35 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ## API Endpoints
 
 ### Authentication
+- `POST /api/v1/auth/register` - User registration (sign up)
 - `POST /api/v1/auth/login` - User login (OAuth2 form)
 - `POST /api/v1/auth/login/json` - User login (JSON body)
+- `POST /api/v1/auth/logout` - User logout
+- `POST /api/v1/auth/verify-email` - Verify email with token
+- `POST /api/v1/auth/resend-verification` - Resend verification email
+- `POST /api/v1/auth/forgot-password` - Request password reset
+- `POST /api/v1/auth/reset-password` - Reset password with token
+- `PATCH /api/v1/auth/me` - Update profile (name, email)
+- `PATCH /api/v1/auth/me/password` - Change password
+- `POST /api/v1/auth/forgot-password` - Request password reset
+- `POST /api/v1/auth/reset-password` - Reset password with token
+- `POST /api/v1/auth/change-password` - Change password (authenticated)
+- `PATCH /api/v1/auth/profile` - Update user profile
 - `GET /api/v1/auth/me` - Get current user info
+
+### Shop Management
+- `POST /api/v1/shops` - Create new shop
+- `GET /api/v1/shops` - List all shops
+- `GET /api/v1/shops/{id}` - Get shop details
+- `PATCH /api/v1/shops/{id}` - Update shop
+- `DELETE /api/v1/shops/{id}` - Delete shop
+
+### Categories
+- `POST /api/v1/categories` - Create category
+- `GET /api/v1/categories` - List categories
+- `GET /api/v1/categories/{id}` - Get category
+- `PATCH /api/v1/categories/{id}` - Update category
+- `DELETE /api/v1/categories/{id}` - Delete category
 
 ### Dashboard
 - `GET /api/v1/dashboard` - Get dashboard data (KPIs, trends, alerts)
@@ -174,6 +203,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 - `PATCH /api/v1/products/{id}` - Update product
 - `POST /api/v1/products/{id}/adjust-stock` - Adjust stock
 - `GET /api/v1/products/summary` - Inventory summary
+- `GET /api/v1/products/low-stock` - List low stock products
+- `POST /api/v1/products/check-low-stock` - Trigger low stock alerts
 
 ### Sales
 - `GET /api/v1/sales` - List sales
@@ -181,6 +212,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 - `GET /api/v1/sales/{id}` - Get sale
 - `PATCH /api/v1/sales/{id}` - Update sale
 - `POST /api/v1/sales/{id}/void` - Void sale
+- `POST /api/v1/sales/{id}/refund` - Process refund (full or partial)
+- `GET /api/v1/sales/payment-methods` - List payment methods
+- `GET /api/v1/sales/payment-stats` - Payment method statistics
 
 ### GST & Billing
 - `GET /api/v1/gst/summary` - GST summary
@@ -193,6 +227,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ### Reports
 - `GET /api/v1/reports` - Comprehensive reports
+- `GET /api/v1/reports/export/excel` - Export report as Excel
+- `GET /api/v1/reports/export/csv` - Export report as CSV
 
 ### Employees
 - `GET /api/v1/employees` - List employees
@@ -204,6 +240,20 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ### Profitability
 - `GET /api/v1/profitability` - Profitability analysis
+
+### Invoices
+- `POST /api/v1/invoices/{sale_id}` - Create invoice for sale
+- `GET /api/v1/invoices` - List all invoices
+- `GET /api/v1/invoices/{id}` - Get invoice details
+- `GET /api/v1/invoices/sale/{sale_id}` - Get invoices by sale
+- `DELETE /api/v1/invoices/{id}` - Delete invoice
+
+### Notifications
+- `POST /api/v1/notifications` - Create notification
+- `GET /api/v1/notifications` - List notifications
+- `POST /api/v1/notifications/mark-read` - Mark notifications as read
+- `POST /api/v1/notifications/mark-all-read` - Mark all as read
+- `DELETE /api/v1/notifications/{id}` - Delete notification
 
 ## Key Features
 

@@ -18,6 +18,7 @@ from app.services.inventory_service import (
     adjust_product_stock,
     get_inventory_summary
 )
+from app.services.notification_service import check_and_alert_low_stock
 from app.schemas.product import (
     ProductCreate,
     ProductUpdate,
@@ -26,6 +27,82 @@ from app.schemas.product import (
 )
 
 router = APIRouter()
+
+
+@router.get("/low-stock")
+async def get_low_stock_products(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of products with low stock (at or below reorder point).
+    
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        List of low stock products
+    """
+    from app.models.product import Product
+    
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="User is not associated with a shop")
+    
+    low_stock_products = db.query(Product).filter(
+        Product.shop_id == current_user.shop_id,
+        Product.current_stock <= Product.reorder_point
+    ).all()
+    
+    return {
+        "low_stock_products": [
+            {
+                "id": str(p.id),
+                "name": p.name,
+                "sku": p.sku,
+                "current_stock": p.current_stock,
+                "reorder_point": p.reorder_point,
+                "unit_price": float(p.unit_price),
+                "unit_cost": float(p.unit_cost)
+            }
+            for p in low_stock_products
+        ],
+        "count": len(low_stock_products)
+    }
+
+
+@router.post("/check-low-stock")
+async def trigger_low_stock_check(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Manually trigger low stock check and create alerts.
+    
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Number of alerts created
+    """
+    if not current_user.shop_id:
+        raise HTTPException(status_code=400, detail="User is not associated with a shop")
+    
+    notifications = check_and_alert_low_stock(db, current_user.shop_id)
+    
+    return {
+        "message": f"Low stock check completed. Created {len(notifications)} alert(s)",
+        "alerts_created": len(notifications),
+        "notifications": [
+            {
+                "id": str(n.id),
+                "title": n.title,
+                "message": n.message
+            }
+            for n in notifications
+        ]
+    }
 
 
 @router.post("", response_model=ProductResponse, status_code=201)

@@ -22,7 +22,10 @@ from app.api.v1 import (
     reports,
     employees,
     profit,
-    invoices
+    invoices,
+    shops,
+    categories,
+    notifications
 )
 
 
@@ -145,6 +148,23 @@ app.include_router(
     invoices.router,
     prefix="/api/v1/invoices",
     tags=["Invoices"]
+)
+
+app.include_router(
+    shops.router,
+    prefix="/api/v1/shops",
+    tags=["Shops"]
+)
+
+app.include_router(
+    categories.router,
+    prefix="/api/v1/categories",
+    tags=["Categories"]
+)
+app.include_router(
+    notifications.router,
+    prefix="/api/v1/notifications",
+    tags=["Notifications"]
 )
 
 

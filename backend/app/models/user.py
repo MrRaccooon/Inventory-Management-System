@@ -22,6 +22,7 @@ class User(Base):
     password_hash = Column(Text, nullable=False)
     role = Column(user_role, nullable=False, server_default="'staff'::user_role")
     is_active = Column(Boolean, nullable=False, server_default=text("true"))
+    email_verified = Column(Boolean, nullable=False, server_default=text("false"))
     last_login = Column(TIMESTAMP(timezone=True), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)

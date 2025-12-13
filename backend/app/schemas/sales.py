@@ -37,8 +37,16 @@ class SaleCreate(BaseModel):
     """Schema for creating a sale."""
     items: List[SaleItemCreate]
     payment_type: str = "cash"  # cash, card, upi, credit, other
+    payment_reference: str | None = None  # Transaction ID, check number, etc.
     customer_info: dict = {}
     notes: Optional[str] = None
+
+
+class RefundRequest(BaseModel):
+    """Refund request schema."""
+    reason: str
+    refund_amount: Decimal | None = None  # Partial refund if specified
+    items: List[UUID] | None = None  # Specific items to refund
     gst_rate: float = 18.0
 
 

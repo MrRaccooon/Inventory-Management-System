@@ -1,6 +1,6 @@
 # backend/app/models/notifications.py
 import uuid
-from sqlalchemy import Column, Text, text
+from sqlalchemy import Column, Text, text, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy import TIMESTAMP
@@ -18,8 +18,12 @@ class Notification(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
     shop_id = Column(UUID(as_uuid=True), ForeignKey("shops.id"), nullable=False)
     type = Column(Text, nullable=False)
+    title = Column(Text, nullable=False)
+    message = Column(Text, nullable=False)
     target_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     payload = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    is_read = Column(Boolean, nullable=False, server_default=text("false"))
+    read_at = Column(TIMESTAMP(timezone=True), nullable=True)
     status = Column(notification_status, nullable=False, server_default="'unread'::notification_status")
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
 
