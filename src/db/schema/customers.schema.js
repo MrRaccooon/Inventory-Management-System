@@ -1,21 +1,17 @@
 /**
-Customer database
-File: customers.schema.js
-Purpose: Defines customers per tenant with contact, GST, and walk-in flags
-Layer: DB
-Notes:
-- CASCADE delete on tenant_id ensures tenant data isolation
-- is_walk_in flag differentiates anonymous/walk-in customers from regular profiles
-- Indexed by tenant and phone for fast lookups
-*/
+ * Customer database
+ * File: customers.schema.js
+ * Purpose: Defines customers per tenant with contact, GST, and walk-in flags
+ * Layer: DB
+ */
 
-import { pgTable, serial, integer, varchar, text, boolean, timestamp, index} from 'drizzle-orm/pg-core';
-import { tenants } from './tenants.schema.js';
+const { pgTable, serial, integer, varchar, text, boolean, timestamp, index } = require('drizzle-orm/pg-core');
+const { tenants } = require('./tenants.schema.js');
 
 /** Customers table schema */
-export const customers = pgTable('customers', {
+const customers = pgTable('customers', {
   id: serial('id').primaryKey(),
-  tenantId: integer('tenant_id')
+  tenant_id: integer('tenant_id')
     .notNull()
     .references(() => tenants.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
@@ -24,11 +20,12 @@ export const customers = pgTable('customers', {
   address: text('address'),
   city: varchar('city', { length: 100 }),
   gstin: varchar('gstin', { length: 15 }),
-  isWalkIn: boolean('is_walk_in').default(false),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-});
+  is_walk_in: boolean('is_walk_in').default(false),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index('idx_customers_tenant_id').on(table.tenant_id),
+  phoneIdx: index('idx_customers_phone').on(table.phone)
+}));
 
-/** Indexes */
-export const idxCustomersTenantId = index('idx_customers_tenant_id').on(customers.tenantId);
-export const idxCustomersPhone = index('idx_customers_phone').on(customers.phone);
+module.exports = { customers };

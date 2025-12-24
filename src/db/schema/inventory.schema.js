@@ -1,49 +1,41 @@
 /**
-Stock levels & locations 
-File: inventory.schema.js
-Purpose: Defines per-warehouse product stock levels for each tenant
-Layer: DB
-Notes:
-- One row per (tenant, product, warehouse) combination
-- CASCADE deletes ensure inventory cleanup with tenant/product/warehouse removal
-- Quantities are raw counts only; no derived fields stored
-- Composite UNIQUE enforces a single inventory record per product per warehouse per tenant
-*/
+ * Stock levels & locations
+ * File: inventory.schema.js
+ * Purpose: Defines per-warehouse product stock levels for each tenant
+ * Layer: DB
+ */
 
-import { pgTable, serial, integer, timestamp, index, unique} from 'drizzle-orm/pg-core';
-import { tenants } from './tenants.schema.js';
-import { products } from './products.schema.js';
-import { warehouses } from './warehouses.schema.js';
+const { pgTable, serial, integer, timestamp, index, unique } = require('drizzle-orm/pg-core');
+const { tenants } = require('./tenants.schema.js');
+const { products } = require('./products.schema.js');
+const { warehouses } = require('./warehouses.schema.js');
 
 /** Inventory table schema */
-export const inventory = pgTable(
-  'inventory',
-  {
-    id: serial('id').primaryKey(),
-    tenantId: integer('tenant_id')
-      .notNull()
-      .references(() => tenants.id, { onDelete: 'cascade' }),
-    productId: integer('product_id')
-      .notNull()
-      .references(() => products.id, { onDelete: 'cascade' }),
-    warehouseId: integer('warehouse_id')
-      .notNull()
-      .references(() => warehouses.id, { onDelete: 'cascade' }),
-    quantityOnHand: integer('quantity_on_hand').default(0),
-    quantityReserved: integer('quantity_reserved').default(0),
-    lastCounted: timestamp('last_counted'),
-    lastMovement: timestamp('last_movement'),
-    updatedAt: timestamp('updated_at').defaultNow(),
-  },
-  (table) => ({
-    // Ensure a single inventory row per tenant+product+warehouse
-    uniqueTenantProductWarehouse: unique(
-      'inventory_tenant_product_warehouse_unique',
-    ).on(table.tenantId, table.productId, table.warehouseId),
-  }),
-);
+const inventory = pgTable('inventory', {
+  id: serial('id').primaryKey(),
+  tenant_id: integer('tenant_id')
+    .notNull()
+    .references(() => tenants.id, { onDelete: 'cascade' }),
+  product_id: integer('product_id')
+    .notNull()
+    .references(() => products.id, { onDelete: 'cascade' }),
+  warehouse_id: integer('warehouse_id')
+    .notNull()
+    .references(() => warehouses.id, { onDelete: 'cascade' }),
+  quantity_on_hand: integer('quantity_on_hand').default(0),
+  quantity_reserved: integer('quantity_reserved').default(0),
+  last_counted: timestamp('last_counted'),
+  last_movement: timestamp('last_movement'),
+  updated_at: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  uniqueTenantProductWarehouse: unique('inventory_tenant_product_warehouse_unique').on(
+    table.tenant_id,
+    table.product_id,
+    table.warehouse_id
+  ),
+  tenantIdIdx: index('idx_inventory_tenant_id').on(table.tenant_id),
+  productIdIdx: index('idx_inventory_product_id').on(table.product_id),
+  warehouseIdIdx: index('idx_inventory_warehouse_id').on(table.warehouse_id)
+}));
 
-/** Indexes for performance */
-export const idxInventoryTenantId = index('idx_inventory_tenant_id').on(inventory.tenantId,);
-export const idxInventoryProductId = index('idx_inventory_product_id').on(inventory.productId,);
-export const idxInventoryWarehouseId = index('idx_inventory_warehouse_id').on(inventory.warehouseId,);
+module.exports = { inventory };
