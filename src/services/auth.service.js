@@ -35,13 +35,13 @@ const registerTenantOwner = async (data) => {
 
     // Create tenant record
     const [tenant] = await db.insert(tenants).values({
-      name: data.tenantName,
-      email: data.tenantEmail,
-      phone: data.tenantPhone,
+      name: data.tenantName,                    // ✅ Maps to tenants.name
+      email: data.tenantEmail,                  // ✅ Maps to tenants.email
+      phone: data.tenantPhone,                  // ✅ Maps to tenants.phone
       address: data.address || null,
       city: data.city || null,
       state: data.state || null,
-      gst_number: data.gstNumber || null,
+      gst_number: data.gstNumber || null,       // ✅ Maps to tenants.gst_number
       subscription_plan: 'free',
       plan_started_at: new Date(),
       status: 'active'
@@ -51,7 +51,7 @@ const registerTenantOwner = async (data) => {
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.ownerEmail,
       password: data.password,
-      email_confirm: true, // Auto-confirm email for now
+      email_confirm: true,
       user_metadata: {
         fullname: data.fullname,
         role: USER_ROLES.ADMIN,
@@ -71,9 +71,9 @@ const registerTenantOwner = async (data) => {
     // Create user record in database
     const [user] = await db.insert(users).values({
       id: authData.user.id,
-      tenant_id: tenant.id,
+      tenant_id: tenant.id,                     // ✅ snake_case for DB
       email: data.ownerEmail,
-      full_name: data.fullname,
+      full_name: data.fullname,                 // ✅ Maps fullname to full_name
       phone: data.phone,
       role: USER_ROLES.ADMIN,
       status: 'active'
@@ -93,9 +93,9 @@ const registerTenantOwner = async (data) => {
       user: {
         id: user.id,
         email: user.email,
-        fullname: user.full_name,
+        fullname: user.full_name,               // ✅ Map back to camelCase for response
         role: user.role,
-        tenantId: user.tenant_id,
+        tenantId: user.tenant_id,               // ✅ Map back to camelCase for response
         status: user.status
       },
       session: {
@@ -112,8 +112,91 @@ const registerTenantOwner = async (data) => {
 /**
  * Register employee (admin/manager only)
  */
+// const registerEmployee = async (data) => {
+//   try {
+//     // Check subscription limits
+//     const [tenant] = await db.select().from(tenants).where(eq(tenants.id, data.tenantId));
+    
+//     if (!tenant) {
+//       throw {
+//         code: ERROR_CODES.NOT_FOUND,
+//         message: 'Tenant not found'
+//       };
+//     }
+
+//     const employeeList = await db.select().from(users).where(eq(users.tenant_id, data.tenantId));
+//     const limit = SUBSCRIPTION_LIMITS[tenant.subscription_plan]?.MAX_EMPLOYEES || 5;
+
+//     if (employeeList.length >= limit) {
+//       throw {
+//         code: ERROR_CODES.SUBSCRIPTION_LIMIT_REACHED,
+//         message: `${tenant.subscription_plan} plan allows max ${limit} employees. Please upgrade.`
+//       };
+//     }
+
+//     // Check if email already exists
+//     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+//     const emailExists = existingUsers.users.some(u => u.email === data.email);
+    
+//     if (emailExists) {
+//       throw {
+//         code: ERROR_CODES.EMAIL_ALREADY_EXISTS,
+//         message: 'Email already registered'
+//       };
+//     }
+
+//     // Create user in Supabase Auth
+//     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+//       email: data.email,
+//       password: data.password,
+//       email_confirm: true,
+//       user_metadata: {
+//         fullname: data.fullname,
+//         role: data.role,
+//         tenantId: data.tenantId
+//       }
+//     });
+
+//     if (authError) {
+//       throw {
+//         code: ERROR_CODES.INTERNAL_ERROR,
+//         message: authError.message
+//       };
+//     }
+
+//     // Create user record in database
+//     const [user] = await db.insert(users).values({
+//       id: authData.user.id,
+//       tenant_id: data.tenantId,
+//       email: data.email,
+//       full_name: data.fullname,
+//       phone: data.phone || null,
+//       role: data.role,
+//       department: data.department || null,
+//       salary: data.salary || null,
+//       hire_date: data.hireDate || null,
+//       status: 'active'
+//     }).returning();
+
+//     return {
+//       id: user.id,
+//       email: user.email,
+//       fullname: user.full_name,
+//       role: user.role,
+//       tenantId: user.tenant_id,
+//       status: user.status,
+//       department: user.department
+//     };
+//   } catch (err) {
+//     throw err;
+//   }
+// };
 const registerEmployee = async (data) => {
   try {
+    console.log('🔍 Service received data:', data);
+    console.log('📧 Email:', data.email);
+    console.log('🏢 TenantId:', data.tenantId);
+    
     // Check subscription limits
     const [tenant] = await db.select().from(tenants).where(eq(tenants.id, data.tenantId));
     
@@ -126,7 +209,7 @@ const registerEmployee = async (data) => {
 
     const employeeList = await db.select().from(users).where(eq(users.tenant_id, data.tenantId));
     const limit = SUBSCRIPTION_LIMITS[tenant.subscription_plan]?.MAX_EMPLOYEES || 5;
-
+    
     if (employeeList.length >= limit) {
       throw {
         code: ERROR_CODES.SUBSCRIPTION_LIMIT_REACHED,
@@ -158,11 +241,14 @@ const registerEmployee = async (data) => {
     });
 
     if (authError) {
+      console.error('❌ Supabase error:', authError);
       throw {
         code: ERROR_CODES.INTERNAL_ERROR,
         message: authError.message
       };
     }
+
+    console.log('✅ Supabase user created:', authData.user.id);
 
     // Create user record in database
     const [user] = await db.insert(users).values({
@@ -174,9 +260,11 @@ const registerEmployee = async (data) => {
       role: data.role,
       department: data.department || null,
       salary: data.salary || null,
-      hire_date: data.hireDate || null,
-      status: 'active'
+      hire_date: data.hireDate || null
+      // status uses default 'active' from schema
     }).returning();
+
+    console.log('✅ Database user created:', user.id);
 
     return {
       id: user.id,
@@ -188,9 +276,11 @@ const registerEmployee = async (data) => {
       department: user.department
     };
   } catch (err) {
+    console.error('❌ registerEmployee service error:', err);
     throw err;
   }
 };
+
 
 /**
  * Login user

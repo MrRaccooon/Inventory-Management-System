@@ -36,11 +36,12 @@ const registerEmployeeSchema = Joi.object({
   password: Joi.string().min(8).max(128).required(),
   fullname: Joi.string().min(2).max(255).required(),
   phone: Joi.string().pattern(/^[0-9]{10}$/).optional(),
-  role: Joi.string().valid('admin', 'manager', 'sales_associate', 'inventory_clerk').required(),
+  role: Joi.string().valid('admin', 'manager', 'employee').required(),
   department: Joi.string().max(100).optional(),
   salary: Joi.number().positive().optional(),
   hireDate: Joi.date().optional()
 });
+
 
 /**
  * Login validation schema

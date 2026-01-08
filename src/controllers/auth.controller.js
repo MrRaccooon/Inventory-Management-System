@@ -11,7 +11,7 @@
 
 const authService = require('../services/auth.service');  // ✅ CommonJS
 const {
-  validateRegisterOwner,
+  validateRegisterTenantOwner,
   validateRegisterEmployee,
   validateLogin,
   validateRefreshToken,
@@ -27,63 +27,71 @@ const {
  * @desc    Register new tenant owner (creates tenant + admin user)
  */
 const registerOwner = async (req, res, next) => {
-    try {
-        const { error, value } = validateRegisterOwner(req.body);
-        if (error) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    code: 'VALIDATION_ERROR',
-                    message: error.details[0].message
-                }
-            });
-        }
+  try {
+    // Validator throws error if validation fails, returns value if success
+    const validatedData = validateRegisterTenantOwner(req.body);
+    
+    const result = await authService.registerTenantOwner(validatedData);
 
-        const result = await authService.registerTenantOwner(value);
-
-        res.status(201).json({
-            success: true,
-            data: result,
-            meta: {}
-        });
-    } catch (err) {
-        next(err);
-    }
+    res.status(201).json({
+      success: true,
+      data: result,
+      meta: {}
+    });
+  } catch (err) {
+    next(err);
+  }
 };
+
 
 /**
  * @route   POST /api/v1/auth/register/employee
  * @access  Private (Admin/Manager only)
  * @desc    Register new employee within tenant
  */
+/**
+ * @route POST /api/v1/auth/register/employee
+ * @access Private (Admin/Manager only)
+ * @desc Register new employee within tenant
+ */
 const registerEmployee = async (req, res, next) => {
-    try {
-        const { error, value } = validateRegisterEmployee(req.body);
-        if (error) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    code: 'VALIDATION_ERROR',
-                    message: error.details[0].message
-                }
-            });
-        }
-
-        const result = await authService.registerEmployee({
-            ...value,
-            tenantId: req.user.tenantId,
-            createdBy: req.user.id
-        });
-
-        res.status(201).json({
-            success: true,
-            data: result,
-            meta: {}
-        });
-    } catch (err) {
-        next(err);
-    }
+  try {
+    // Validate request body
+    const validatedData = validateRegisterEmployee(req.body);
+    
+    console.log('✅ Validated data:', validatedData);
+    console.log('👤 Authenticated user:', req.user);
+    
+    // Prepare complete employee data
+    const employeeData = {
+      email: validatedData.email,
+      password: validatedData.password,
+      fullname: validatedData.fullname,
+      phone: validatedData.phone,
+      role: validatedData.role,
+      department: validatedData.department,
+      salary: validatedData.salary,
+      hireDate: validatedData.hireDate,
+      tenantId: req.user.tenantId,  // From authenticated user
+      createdBy: req.user.id
+    };
+    
+    console.log('📤 Sending to service:', employeeData);
+    
+    const result = await authService.registerEmployee(employeeData);
+    
+    res.status(201).json({
+      success: true,
+      data: result,
+      meta: {}
+    });
+  } catch (err) {
+    console.error('❌ registerEmployee error:', err);
+    next(err);
+  }
 };
+
+
 
 /**
  * @route   POST /api/v1/auth/login
@@ -91,28 +99,19 @@ const registerEmployee = async (req, res, next) => {
  * @desc    Login user with email/password
  */
 const login = async (req, res, next) => {
-    try {
-        const { error, value } = validateLogin(req.body);
-        if (error) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    code: 'VALIDATION_ERROR',
-                    message: error.details[0].message
-                }
-            });
-        }
-
-        const result = await authService.login(value);
-
-        res.status(200).json({
-            success: true,
-            data: result,
-            meta: {}
-        });
-    } catch (err) {
-        next(err);
-    }
+  try {
+    // Validator throws error if validation fails, returns value if success
+    const validatedData = validateLogin(req.body);
+    const result = await authService.login(validatedData);
+    
+    res.status(200).json({
+      success: true,
+      data: result,
+      meta: {}
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 /**
@@ -320,34 +319,26 @@ const updateProfile = async (req, res, next) => {
  * @desc    Change password for authenticated user
  */
 const changePassword = async (req, res, next) => {
-    try {
-        const { error, value } = validateChangePassword(req.body);
-        if (error) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    code: 'VALIDATION_ERROR',
-                    message: error.details[0].message
-                }
-            });
-        }
-
-        await authService.changePassword(
-            req.user.id,
-            value.currentPassword,
-            value.newPassword
-        );
-
-        res.status(200).json({
-            success: true,
-            data: {
-                message: 'Password changed successfully'
-            },
-            meta: {}
-        });
-    } catch (err) {
-        next(err);
-    }
+  try {
+    // ✅ Validator throws on error, returns value on success
+    const validatedData = validateChangePassword(req.body);
+    
+    await authService.changePassword(
+      req.user.id,
+      validatedData.currentPassword,
+      validatedData.newPassword
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        message: 'Password changed successfully'
+      },
+      meta: {}
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 module.exports = {

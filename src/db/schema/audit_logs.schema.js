@@ -7,6 +7,7 @@
  * - Tenant-scoped audit records with optional user linkage
  * - JSONB payload for before/after snapshots or extra metadata
  * - Indexed for querying by tenant, user, entity, and creation time
+ * - entity_id as varchar to support both integer IDs and UUIDs
  */
 
 const {
@@ -35,13 +36,12 @@ const auditLogs = pgTable('audit_logs', {
   }),
   action: varchar('action', { length: 100 }).notNull(),
   entity: varchar('entity', { length: 100 }).notNull(),
-  entity_id: integer('entity_id'),
+  entity_id: varchar('entity_id', { length: 100 }), // ✅ Changed from integer to varchar
   payload: jsonb('payload'),
   ip_address: varchar('ip_address', { length: 45 }),
   user_agent: text('user_agent'),
   created_at: timestamp('created_at').defaultNow(),
 }, (table) => ({
-  // ✅ New syntax for indexes
   tenantIdIdx: index('idx_audit_logs_tenant_id').on(table.tenant_id),
   userIdIdx: index('idx_audit_logs_user_id').on(table.user_id),
   entityIdx: index('idx_audit_logs_entity').on(table.entity),

@@ -11,9 +11,7 @@
 
 const { ERROR_CODES } = require('../utils/constants');
 
-/**
- * Map error code to HTTP status
- */
+/** Map error code to HTTP status */
 const errorStatusMap = {
   [ERROR_CODES.VALIDATION_ERROR]: 400,
   [ERROR_CODES.INVALID_CREDENTIALS]: 401,
@@ -31,14 +29,13 @@ const errorStatusMap = {
   [ERROR_CODES.INTERNAL_ERROR]: 500
 };
 
-/**
- * Global error handler middleware
- */
+/** Global error handler middleware */
 const errorMiddleware = (err, req, res, next) => {
   // Log error
   console.error('Error:', {
     code: err.code || 'UNKNOWN',
     message: err.message,
+    details: err.details || undefined,  // ✅ Added this
     stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     path: req.path,
     method: req.method
@@ -52,7 +49,8 @@ const errorMiddleware = (err, req, res, next) => {
     success: false,
     error: {
       code: err.code || ERROR_CODES.INTERNAL_ERROR,
-      message: err.message || 'An unexpected error occurred'
+      message: err.message || 'An unexpected error occurred',
+      details: err.details || undefined  // ✅ Added this to response
     }
   });
 };
